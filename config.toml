@@ -1,0 +1,4 @@
+[keys]
+# Workspace picker (prefix+w): move between workspaces with j/k instead of arrow keys
+navigate_workspace_up = "k"
+navigate_workspace_down = "j"

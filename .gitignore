@@ -1,0 +1,4 @@
+# Herdr runtime state — never commit
+*.log
+session.json
+.plugins.lock
