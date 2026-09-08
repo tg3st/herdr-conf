@@ -2,3 +2,18 @@
 # Workspace picker (prefix+w): move between workspaces with j/k instead of arrow keys
 navigate_workspace_up = "k"
 navigate_workspace_down = "j"
+
+# Cheatsheet: popup viewer (any key closes) and a pinnable right-side panel.
+# The panel script pins/unpins a "Cheatsheet" pane in the focused tab;
+# `herdr-cheatsheet all` pins it in every existing tab.
+[[keys.command]]
+key = "prefix+shift+c"
+type = "popup"
+command = "less $HOME/.config/herdr/cheatsheet.txt"
+width = "45%"
+height = "85%"
+
+[[keys.command]]
+key = "prefix+\\"
+type = "shell"
+command = "$HOME/.config/herdr/bin/herdr-cheatsheet toggle"

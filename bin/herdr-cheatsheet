@@ -1,0 +1,87 @@
+#!/bin/bash
+# herdr-cheatsheet — pin/unpin a keybinding cheatsheet pane in herdr.
+#
+# usage: herdr-cheatsheet [toggle|all|off]
+#   toggle (default)  pin a cheatsheet pane on the right of the focused tab,
+#                     or close it if one is already pinned there
+#   all               pin a cheatsheet pane in every tab of every workspace
+#                     (tabs that already have one are left alone)
+#   off               close every cheatsheet pane everywhere
+#
+# Designed for a herdr custom command keybinding:
+#   [[keys.command]]
+#   key = "prefix+\\"
+#   type = "shell"
+#   command = "~/.config/herdr/bin/herdr-cheatsheet toggle"
+
+set -euo pipefail
+
+LABEL="Cheatsheet"
+CS="$HOME/.config/herdr/cheatsheet.txt"
+CS_DIR="$HOME/.config/herdr"
+
+panes() { herdr pane list 2>/dev/null | jq -r '.result.panes[] | [.pane_id, .tab_id, (.label // "")] | @tsv'; }
+
+# open_in ANCHOR_PANE_ID — split right, label, launch viewer
+open_in() {
+  local out new
+  out=$(herdr pane split --pane "$1" --direction right --ratio 0.25 --cwd "$CS")
+  new=$(jq -r '.result.pane.pane_id' <<<"$out")
+  herdr pane rename "$new" "$LABEL" >/dev/null
+  sleep 0.5   # let the login shell reach its prompt before typing
+  herdr pane run "$new" "less '$CS'" >/dev/null
+}
+
+cmd="${1:-toggle}"
+case "$cmd" in
+  toggle)
+    cur=$(herdr pane current | jq -c '.result.pane')
+    tab=$(jq -r '.tab_id' <<<"$cur")
+    curid=$(jq -r '.pane_id' <<<"$cur")
+    curlabel=$(jq -r '.label // ""' <<<"$cur")
+
+    # cheatsheet panes already in this tab -> close them (toggle off)
+    if herdr pane list 2>/dev/null | jq -e --arg t "$tab" \
+        '.result.panes[] | select(.tab_id==$t and .label=="'"$LABEL"'")' >/dev/null; then
+      herdr pane list | jq -r --arg t "$tab" \
+        '.result.panes[] | select(.tab_id==$t and .label=="'"$LABEL"'") | .pane_id' |
+        while IFS= read -r id; do herdr pane close "$id" >/dev/null; done
+      exit 0
+    fi
+
+    # anchor: current pane unless it is itself a cheatsheet pane
+    anchor="$curid"
+    if [[ "$curlabel" == "$LABEL" ]]; then
+      anchor=$(herdr pane list 2>/dev/null | jq -r --arg t "$tab" \
+        '[.result.panes[] | select(.tab_id==$t and .label!="'"$LABEL"'")][0].pane_id // empty')
+      [[ -z "$anchor" ]] && exit 0   # nothing else to anchor on
+    fi
+    open_in "$anchor"
+    ;;
+
+  all)
+    # every tab in every workspace, skipping tabs that already have one
+    while IFS=$'\t' read -r tab anchor; do
+      open_in "$anchor"
+    done < <(
+      herdr tab list 2>/dev/null | jq -r '.result.tabs[].tab_id' | while IFS= read -r tab; do
+        herdr pane list 2>/dev/null | jq -r --arg t "$tab" --arg l "$LABEL" '
+          [ .result.panes[] | select(.tab_id==$t) ] as $ps
+          | if any($ps[]; .label==$l) then empty
+            else ($ps | sort_by(.pane_id) | .[0].pane_id) end' |
+        while IFS= read -r anchor; do printf '%s\t%s\n' "$tab" "$anchor"; done
+      done
+    )
+    ;;
+
+  off)
+    herdr pane list 2>/dev/null | jq -r --arg l "$LABEL" \
+      '.result.panes[] | select(.label==$l) | .pane_id' |
+      while IFS= read -r id; do herdr pane close "$id" >/dev/null; done
+    ;;
+
+  *)
+    echo "usage: herdr-cheatsheet [toggle|all|off]" >&2
+    exit 2
+    ;;
+esac

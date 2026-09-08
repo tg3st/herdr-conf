@@ -1,0 +1,40 @@
+              HERDR CHEATSHEET
+              prefix = ctrl+b
+
+ WORKSPACES
+   picker            prefix+w
+     move in picker  j / k
+   new              prefix+shift+n
+   rename           prefix+shift+w
+   close            prefix+shift+d
+
+ TABS
+   new              prefix+c
+   rename           prefix+shift+t
+   next / prev      prefix+n / prefix+p
+   jump 1..9        prefix+1..9
+   close            prefix+shift+x
+
+ PANES
+   split right      prefix+v
+   split down       prefix+minus
+   focus            prefix+h j k l
+   cycle            prefix+tab
+   zoom             prefix+z
+   resize mode      prefix+r
+   close            prefix+x
+
+ MISC
+   live key list    prefix+?
+   sidebar          prefix+b
+   edit scrollback  prefix+e
+   settings         prefix+s
+   reload config    prefix+shift+r
+   detach           prefix+q
+
+ THIS SETUP
+   cheatsheet popup prefix+shift+c
+   pin/unpin panel  prefix+\
+
+ close panel: select it, press prefix+x
+ (or toggle again with prefix+\)
