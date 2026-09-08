@@ -21,6 +21,21 @@ ensure_once() {
   "$HELPER" all >/dev/null 2>&1
 }
 
+tab_signature() {
+  herdr tab list 2>/dev/null | jq -r '.result.tabs | map(.tab_id) | sort | join(",")'
+}
+
+ensure_new_tabs() {
+  local signature
+
+  signature=$(tab_signature) || return 1
+  [[ -n "$signature" ]] || return 2
+  if [[ "$signature" != "$last_tab_signature" ]]; then
+    "$HELPER" all >/dev/null 2>&1 || return 1
+    last_tab_signature="$signature"
+  fi
+}
+
 # A one-shot mode makes the lifecycle action independently testable.
 if [[ "${1:-}" == "--once" ]]; then
   ensure_once
@@ -30,20 +45,27 @@ fi
 # Watch the server lifecycle. Do not repeatedly recreate panes while it stays
 # up; reset only after the server disappears, then ensure them on its next start.
 server_was_up=0
+last_tab_signature=""
 while :; do
   if herdr status server >/dev/null 2>&1; then
     if (( server_was_up == 0 )); then
       if ensure_once; then
         server_was_up=1
+        last_tab_signature=$(tab_signature) || last_tab_signature=""
       else
         # Herdr can report healthy before its first tab is available.
         # Retry without marking startup complete.
         sleep 2
         continue
       fi
+    else
+      # A new workspace creates a new tab while the server remains up.
+      # Re-run the idempotent helper only when the tab topology changes.
+      ensure_new_tabs || true
     fi
   else
     server_was_up=0
+    last_tab_signature=""
   fi
   sleep 5
 done
