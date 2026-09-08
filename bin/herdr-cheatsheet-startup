@@ -1,0 +1,46 @@
+#!/bin/bash
+# Keep the cheatsheet pinned in existing Herdr tabs after each server startup.
+# This process is intended to run as a macOS per-user LaunchAgent.
+
+set -u
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+HELPER="$HOME/.config/herdr/bin/herdr-cheatsheet"
+
+ensure_once() {
+  local tabs count
+
+  herdr status server >/dev/null 2>&1 || return 1
+  tabs=$(herdr tab list 2>/dev/null) || return 1
+  count=$(jq -r '.result.tabs | length' <<<"$tabs") || return 1
+  (( count > 0 )) || return 2
+
+  "$HELPER" all >/dev/null 2>&1
+}
+
+# A one-shot mode makes the lifecycle action independently testable.
+if [[ "${1:-}" == "--once" ]]; then
+  ensure_once
+  exit $?
+fi
+
+# Watch the server lifecycle. Do not repeatedly recreate panes while it stays
+# up; reset only after the server disappears, then ensure them on its next start.
+server_was_up=0
+while :; do
+  if herdr status server >/dev/null 2>&1; then
+    if (( server_was_up == 0 )); then
+      if ensure_once; then
+        server_was_up=1
+      else
+        # Herdr can report healthy before its first tab is available.
+        # Retry without marking startup complete.
+        sleep 2
+        continue
+      fi
+    fi
+  else
+    server_was_up=0
+  fi
+  sleep 5
+done
